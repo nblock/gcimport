@@ -1,0 +1,54 @@
+#!/usr/bin/env python2
+'''convert a ELBA csv file to a csv file that is parseable by gnucash'''
+
+import codecs
+import argparse
+from decimal import Decimal
+
+def convert(infile, outfile):
+    '''convert ELBA csv to a csv file that is parseable by gnucash'''
+    keys = (u'date', u'description', u'amount')
+    data_list = []
+    with codecs.open(infile, 'r', encoding='cp1252') as f:
+        for line in f:
+            parts = line.strip().split(';')[:-1]
+            #delete unnecessary values
+            for idx in (5, 4, 2):
+                del(parts[idx])
+            #convert string to decimal
+            parts[2] = Decimal(parts[2].replace(',','.'))
+            data_list.append(dict(zip(keys, parts)))
+
+    #add income and expenses keys according to key 'amount'
+    for item in data_list:
+        if item['amount'] <= 0:
+            item['expense'] = abs(item['amount'])
+            item['income'] = 0
+        else:
+            item['income'] = item['amount']
+            item['expense'] = 0
+        del(item['amount'])
+
+    #write result to file
+    with open(outfile, 'w') as f:
+        for item in data_list:
+            income = '{:.2f}'.format(item['income'])
+            expense = '{:.2f}'.format(item['expense'])
+            out_str = '{};{};{};{}\n'.format(
+                    item['date'],
+                    item['description'].encode('utf-8'),
+                    income.replace('.',','),
+                    expense.replace('.',',')
+                    )
+            f.write(out_str)
+
+def main():
+    '''main entry point with a cli parser'''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('infile', help='the ELBA csv file to convert', type=str)
+    parser.add_argument('outfile', help='the gnucash compatible csv file to write', type=str)
+    args = parser.parse_args()
+    convert(args.infile, args.outfile)
+
+if __name__ == '__main__':
+    main()
