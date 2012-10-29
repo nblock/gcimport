@@ -1,12 +1,34 @@
 #!/usr/bin/env python2
-'''convert a ELBA csv file to a csv file that is parseable by gnucash'''
+'''convert multiple input files (csv, txt) to csv files that can be parsed with gnucash'''
 
 import codecs
 import argparse
 from decimal import Decimal
 
-def convert(infile, outfile):
-    '''convert ELBA csv to a csv file that is parseable by gnucash'''
+def detect_input_format(infile):
+    '''detect input format and return the function to parse the file or raise a ValueError'''
+    with open(infile, 'r') as fp:
+        if(len(fp.readline().split(';'))) == 7:
+            return convert_elba
+        else:
+            raise ValueError('Could not detect input format.')
+
+def write_csv(outfile, data_list):
+    '''write data to csv file'''
+    #[ {'date':'dd.mm.yyyy', 'description':'description', 'income':'700,00', 'expense': '0,00'}, ...]
+    with open(outfile, 'w') as f:
+        for item in data_list:
+            out_str = '{};{};{};{}\n'.format(
+                    item['date'].encode('utf-8'),
+                    item['description'].encode('utf-8'),
+                    item['income'].encode('utf-8'),
+                    item['expense'].encode('utf-8')
+                    )
+            f.write(out_str)
+
+def convert_elba(infile):
+    '''convert ELBA csv to internal mini format and return it'''
+    __to_elba_amount = lambda x: '{:.2f}'.format(x).replace('.', ',')
     keys = (u'date', u'description', u'amount')
     data_list = []
     with codecs.open(infile, 'r', encoding='cp1252') as f:
@@ -22,33 +44,26 @@ def convert(infile, outfile):
     #add income and expenses keys according to key 'amount'
     for item in data_list:
         if item['amount'] <= 0:
-            item['expense'] = abs(item['amount'])
-            item['income'] = 0
+            item['expense'] = __to_elba_amount(abs(item['amount']))
+            item['income'] = __to_elba_amount(0)
         else:
-            item['income'] = item['amount']
-            item['expense'] = 0
+            item['income'] = __to_elba_amount(item['amount'])
+            item['expense'] = __to_elba_amount(0)
         del(item['amount'])
 
-    #write result to file
-    with open(outfile, 'w') as f:
-        for item in data_list:
-            income = '{:.2f}'.format(item['income'])
-            expense = '{:.2f}'.format(item['expense'])
-            out_str = '{};{};{};{}\n'.format(
-                    item['date'],
-                    item['description'].encode('utf-8'),
-                    income.replace('.',','),
-                    expense.replace('.',',')
-                    )
-            f.write(out_str)
+    return data_list
 
-def main():
-    '''main entry point with a cli parser'''
-    parser = argparse.ArgumentParser()
-    parser.add_argument('infile', help='the ELBA csv file to convert', type=str)
-    parser.add_argument('outfile', help='the gnucash compatible csv file to write', type=str)
-    args = parser.parse_args()
-    convert(args.infile, args.outfile)
 
 if __name__ == '__main__':
-    main()
+    '''main entry point with a cli parser'''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('infile', help='the input file to convert', type=str)
+    parser.add_argument('outfile', help='the gnucash compatible csv file to write', type=str)
+    args = parser.parse_args()
+
+    try:
+        func = detect_input_format(args.infile)
+        data_list = func(args.infile)
+        write_csv(args.outfile, data_list)
+    except ValueError as e:
+        (e)
