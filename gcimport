@@ -43,11 +43,11 @@ def read_infile(infile, encoding='utf-8'):
 
 def write_csv(outfile, data_list):
     '''write data to csv file'''
-    #[ {'date':'dd.mm.yyyy', 'description':'description', 'income':'700,00', 'expense': '0,00'}, ...]
+    #[ {'date':datetime object, 'description':'description', 'income':'700,00', 'expense': '0,00'}, ...]
     with open(outfile, 'w') as f:
         for item in data_list:
             out_str = '{};{};{};{}\n'.format(
-                    item['date'].encode('utf-8'),
+                    item['date'].strftime(u'%Y.%m.%d'),
                     item['description'].encode('utf-8'),
                     item['income'].encode('utf-8'),
                     item['expense'].encode('utf-8')
@@ -64,6 +64,9 @@ def convert_elba(infile):
         #delete unnecessary values
         for idx in (5, 4, 2):
             del(parts[idx])
+
+        #parse date
+        parts[0] = datetime.strptime(parts[0], '%d.%m.%Y')
 
         #convert string to decimal
         parts[2] = Decimal(parts[2].replace(',','.'))
@@ -88,8 +91,8 @@ def convert_notes(infile):
         if len(parts) != 3 or len(parts[0]) != 6:
             continue
 
-        #fix date
-        parts[0] = '{}{}'.format(parts[0], datetime.now().year)
+        #parse date
+        parts[0] = datetime.strptime(parts[0], '%d.%m')
 
         #prepare amount
         parts[1] = Decimal(parts[1])*-1
@@ -112,6 +115,9 @@ def convert_paypal(infile):
         #delete unnecessary values
         for idx in (8, 6, 5, 4, 2, 1):
             del(parts[idx])
+
+        #parse date
+        parts[0] = datetime.strptime(parts[0], '%d.%m.%Y')
 
         ##convert string to decimal
         parts[2] = Decimal(parts[2].replace(',','.'))
