@@ -3,8 +3,27 @@
 
 import codecs
 import argparse
+import os
 from decimal import Decimal
 from datetime import datetime
+
+def __check_infile(infile):
+    '''check if infile exists and is readable'''
+    if not os.access(infile, os.R_OK):
+        raise argparse.ArgumentTypeError("'{0}' does not exist or is not readable.".format(infile))
+    return infile
+
+def __decimal_to_gc_amount(value):
+    #add income and expenses keys according to key 'amount'
+    __decimal_to_gc_amount = lambda x: '{:.2f}'.format(x).replace('.', ',')
+    item = []
+    if value <= 0:
+        item.append(__decimal_to_gc_amount(0))          #income
+        item.append(__decimal_to_gc_amount(abs(value))) #expense
+    else:
+        item.append(__decimal_to_gc_amount(value))      #income
+        item.append(__decimal_to_gc_amount(0))          #expense
+    return item
 
 def detect_input_format(infile):
     '''detect input format and return the function to parse the file or raise a ValueError'''
@@ -16,6 +35,11 @@ def detect_input_format(infile):
             return convert_notes
         else:
             raise ValueError('Could not detect input format.')
+
+def read_input(infile, encoding='utf-8'):
+    '''read from infile and return content as list of lines'''
+    with codecs.open(infile, 'r', encoding=encoding) as f:
+        return f.readlines()
 
 def write_csv(outfile, data_list):
     '''write data to csv file'''
@@ -30,77 +54,62 @@ def write_csv(outfile, data_list):
                     )
             f.write(out_str)
 
-def __decimal_to_gc_amount(value):
-    #add income and expenses keys according to key 'amount'
-    __decimal_to_gc_amount = lambda x: '{:.2f}'.format(x).replace('.', ',')
-    item = []
-    if value <= 0:
-        item.append(__decimal_to_gc_amount(0))          #income
-        item.append(__decimal_to_gc_amount(abs(value))) #expense
-    else:
-        item.append(__decimal_to_gc_amount(value))      #income
-        item.append(__decimal_to_gc_amount(0))          #expense
-    return item
-
 def convert_elba(infile):
     '''convert ELBA csv to internal mini format and return it'''
     keys = (u'date', u'description', u'income', u'expense')
     data_list = []
-    with codecs.open(infile, 'r', encoding='cp1252') as f:
-        for line in f:
-            parts = line.strip().split(';')[:-1]
+    for line in read_input(infile, encoding='cp1252'):
+        parts = line.strip().split(';')[:-1]
 
-            #delete unnecessary values
-            for idx in (5, 4, 2):
-                del(parts[idx])
+        #delete unnecessary values
+        for idx in (5, 4, 2):
+            del(parts[idx])
 
-            #convert string to decimal
-            parts[2] = Decimal(parts[2].replace(',','.'))
-            parts.extend(__decimal_to_gc_amount(parts[2]))
-            del(parts[2])
+        #convert string to decimal
+        parts[2] = Decimal(parts[2].replace(',','.'))
+        parts.extend(__decimal_to_gc_amount(parts[2]))
+        del(parts[2])
 
-            data_list.append(dict(zip(keys, parts)))
+        data_list.append(dict(zip(keys, parts)))
 
     return data_list
 
 def convert_notes(infile):
     '''convert NoteMe notes to internal mini format and return it'''
-    __to_elba_amount = lambda x: '{:.2f}'.format(x).replace('.', ',')
     keys = (u'date', u'description', u'income', u'expense')
     data_list = []
-    with codecs.open(infile, 'r', encoding='utf-8') as f:
-        for line in f:
-            parts = line.strip().split(' ')
-            #join descriptions with spaces
-            if len(parts) > 3:
-                parts = [parts[0], parts[1], ' '.join(parts[2:])]
+    for line in read_input(infile):
+        parts = line.strip().split(' ')
+        #join descriptions with spaces
+        if len(parts) > 3:
+            parts = [parts[0], parts[1], ' '.join(parts[2:])]
 
-            #skip possibly invalid parts
-            if len(parts) != 3 or len(parts[0]) != 6:
-                continue
+        #skip possibly invalid parts
+        if len(parts) != 3 or len(parts[0]) != 6:
+            continue
 
-            #fix date
-            parts[0] = '{}{}'.format(parts[0], datetime.now().year)
+        #fix date
+        parts[0] = '{}{}'.format(parts[0], datetime.now().year)
 
-            #prepare amount
-            parts[1] = Decimal(parts[1])*-1
-            parts.extend(__decimal_to_gc_amount(parts[1]))
-            del(parts[1])
+        #prepare amount
+        parts[1] = Decimal(parts[1])*-1
+        parts.extend(__decimal_to_gc_amount(parts[1]))
+        del(parts[1])
 
-            data_list.append(dict(zip(keys, parts)))
+        data_list.append(dict(zip(keys, parts)))
 
     return data_list
 
 if __name__ == '__main__':
     '''main entry point with a cli parser'''
     parser = argparse.ArgumentParser()
-    parser.add_argument('infile', help='the input file to convert', type=str)
+    parser.add_argument('infile', help='the input file to convert', type=__check_infile)
     parser.add_argument('outfile', help='the gnucash compatible csv file to write', type=str)
     args = parser.parse_args()
 
     try:
         func = detect_input_format(args.infile)
-        data_list = func(args.infile)
-        write_csv(args.outfile, data_list)
+        data = func(args.infile)
+        write_csv(args.outfile, data)
     except ValueError as e:
         print(e)
