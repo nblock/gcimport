@@ -14,7 +14,7 @@ def __check_infile(infile):
     return infile
 
 def __decimal_to_gc_amount(value):
-    #add income and expenses keys according to key 'amount'
+    '''add income and expenses keys according to key "amount"'''
     __decimal_to_gc_amount = lambda x: '{:.2f}'.format(x).replace('.', ',')
     item = []
     if value <= 0:
@@ -36,7 +36,7 @@ def detect_input_format(infile):
         else:
             raise ValueError('Could not detect input format.')
 
-def read_input(infile, encoding='utf-8'):
+def read_infile(infile, encoding='utf-8'):
     '''read from infile and return content as list of lines'''
     with codecs.open(infile, 'r', encoding=encoding) as f:
         return f.readlines()
@@ -58,7 +58,7 @@ def convert_elba(infile):
     '''convert ELBA csv to internal mini format and return it'''
     keys = (u'date', u'description', u'income', u'expense')
     data_list = []
-    for line in read_input(infile, encoding='cp1252'):
+    for line in read_infile(infile, encoding='cp1252'):
         parts = line.strip().split(';')[:-1]
 
         #delete unnecessary values
@@ -78,7 +78,7 @@ def convert_notes(infile):
     '''convert NoteMe notes to internal mini format and return it'''
     keys = (u'date', u'description', u'income', u'expense')
     data_list = []
-    for line in read_input(infile):
+    for line in read_infile(infile):
         parts = line.strip().split(' ')
         #join descriptions with spaces
         if len(parts) > 3:
