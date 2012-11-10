@@ -91,8 +91,9 @@ def convert_notes(infile):
         if len(parts) != 3 or len(parts[0]) != 6:
             continue
 
-        #parse date
-        parts[0] = datetime.strptime(parts[0], '%d.%m')
+        #parse date and add current year
+        parts[0] = datetime.strptime(parts[0], '%d.%m.')
+        parts[0] = parts[0].replace(year=datetime.now().year)
 
         #prepare amount
         parts[1] = Decimal(parts[1])*-1
