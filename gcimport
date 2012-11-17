@@ -47,7 +47,7 @@ def write_csv(outfile, data_list):
     #[ {'date':datetime object, 'description':'description', 'income':'700,00', 'expense': '0,00'}, ...]
     with open(outfile, 'w') as f:
         for item in data_list:
-            out_str = '{};{};{};{}\n'.format(
+            out_str = '"{}","{}","{}","{}"\n'.format(
                     item['date'].strftime(u'%Y.%m.%d'),
                     item['description'].encode('utf-8'),
                     item['income'].encode('utf-8'),
