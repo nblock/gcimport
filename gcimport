@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 '''convert multiple input files (csv, txt) to csv files that can be parsed with gnucash'''
 
 import codecs
@@ -29,7 +30,7 @@ def detect_input_format(infile):
     '''detect input format and return the function to parse the file or raise a ValueError'''
     if infile.endswith('Herunterladen.csv'):
         return convert_paypal
-    elif infile.endswith('notes.txt'):
+    elif infile.endswith('notes.txt') or infile.endswith('.eml'):
         return convert_notes
     elif 'elbi_umsaetze' in infile:
         return convert_elba
@@ -80,8 +81,16 @@ def convert_elba(infile):
 def convert_notes(infile):
     '''convert NoteMe notes to internal mini format and return it'''
     keys = (u'date', u'description', u'income', u'expense')
+
+    input_lines = read_infile(infile)
+    if infile.endswith('.eml'):
+        start_idx = input_lines.index(u'[€]\r\n')+2
+        stop_idx = input_lines.index(u'-- \r\n', start_idx)
+        del input_lines[stop_idx:]
+        del input_lines[:start_idx]
+
     data_list = []
-    for line in read_infile(infile):
+    for line in input_lines:
         parts = line.strip().split(' ')
         #join descriptions with spaces
         if len(parts) > 3:
