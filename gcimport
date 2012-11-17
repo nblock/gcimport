@@ -112,7 +112,8 @@ def convert_notes(infile):
 
     input_lines = read_infile(infile)
     if infile.endswith('.eml'):
-        start_idx = input_lines.index(u'[€]\r\n')+2
+        bn = os.path.basename(infile).decode('utf8')
+        start_idx = input_lines.index(u'[{}]\r\n'.format(bn[:-len('.eml')]))+2
         stop_idx = input_lines.index(u'-- \r\n', start_idx)
         del input_lines[stop_idx:]
         del input_lines[:start_idx]
