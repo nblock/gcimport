@@ -4,7 +4,7 @@
 # gcimport
 # author: notizblock <nblock@archlinux.us>
 # license: GPLv3
-'''Convert various input files (csv, txt) to csv files that can be easily parsed with gnucash.'''
+'''Convert various input files (csv, txt) to csv files that can be easily parsed with GnuCash.'''
 
 import codecs
 import argparse
@@ -181,7 +181,7 @@ def convert_paypal(infile):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('infile', help='The input file to convert.', type=__check_infile)
-    parser.add_argument('outfile', help='The gnucash compatible csv file to write.', type=str)
+    parser.add_argument('outfile', help='The GnuCash compatible csv file to write.', type=str)
     args = parser.parse_args()
 
     try:
