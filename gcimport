@@ -109,6 +109,7 @@ def convert_easybank(infile):
         parts[1] = datetime.strptime(parts[1], '%d.%m.%Y')
 
         #convert string to decimal
+        parts[2] = parts[2].replace('.','')
         parts[2] = Decimal(parts[2].replace(',','.'))
         parts.extend(__decimal_to_gc_amount(parts[2]))
         del(parts[2])
