@@ -38,7 +38,7 @@ def detect_input_format(infile):
         return convert_paypal
     elif infile.endswith('notes.txt') or infile.endswith('.eml'):
         return convert_notes
-    elif infile.endswith('EASYBANK_Umsatzliste.csv'):
+    elif 'EASYBANK_Umsatzliste' in infile:
         return convert_easybank
     elif 'elbi_umsaetze' in infile:
         return convert_elba
