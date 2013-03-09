@@ -9,6 +9,7 @@
 import codecs
 import argparse
 import os
+import re
 from decimal import Decimal
 from datetime import datetime
 
@@ -98,6 +99,63 @@ def convert_easybank(infile):
     '''Convert easybank csv to internal format and return it.'''
     keys = (u'description', u'date', u'income', u'expense')
     data_list = []
+    reg_description = re.compile(r'[A-Z]{2}/[0-9]{9}')
+    reg_iban = re.compile(r'([A-Z]{6}[A-Z0-9]{2}[^\s]*)\s([A-Z]{2}[0-9]{10,34}\s)(.*)')
+    reg_legacy = re.compile(r'(.*)([0-9]{5,})\s([0-9]{6,})(.*)')
+
+    def cleanup_description(desc):
+        '''Cleanup up description based of account type.'''
+        if '|' in desc: # most likely a cc account
+            return description_from_cc(desc)
+        else:
+            return description_from_giro(desc)
+
+    def description_from_giro(desc):
+        '''Cleanup description from a giro account.'''
+        # extract iban/bic, account number, ...
+        extracted_data = {}
+        done = False
+        tmp = [x.strip() for x in reg_description.split(desc)]
+        if tmp[1]:
+            # extract iban, bic and text
+            iban_bic = reg_iban.search(tmp[1])
+            if iban_bic:
+                extracted_data['nr'] = iban_bic.group(2).strip()
+                extracted_data['bank'] = iban_bic.group(1)
+                extracted_data['vendor'] = iban_bic.group(3)
+                done = True
+            # bank number
+            if not done:
+                account_number = reg_legacy.search(tmp[1])
+                if account_number:
+                    extracted_data['bank'] = account_number.group(2)
+                    extracted_data['nr'] = account_number.group(3)
+                    if account_number.group(1):
+                        extracted_data['vendor'] = account_number.group(1).strip()
+                    else:
+                        extracted_data['vendor'] = account_number.group(4).strip()
+                    done = True
+
+        # build up description
+        if not tmp[1]:
+            return u'{0}'.format(tmp[0])
+        elif not done:
+            return u'{0}: {1}'.format(tmp[0], tmp[1])
+        elif len(extracted_data) == 3:
+            return u'{0}: {1} ({2} {3})'.format(
+                    tmp[0], extracted_data['vendor'],
+                    extracted_data['nr'], extracted_data['bank'])
+        else:
+            return None
+
+    def description_from_cc(desc):
+        '''Cleanup description from a cc account'''
+        tmp = desc.split('|')
+        if len(tmp) == 2:
+            return u'{0} ({1})'.format(tmp[0], tmp[1])
+        elif len(tmp) == 3:
+            return u'{0} - {1} ({2})'.format(tmp[0], tmp[1], tmp[2])
+
     for line in read_infile(infile, encoding='cp1252'):
         parts = line.strip().split(';')
 
@@ -107,6 +165,13 @@ def convert_easybank(infile):
 
         #parse date
         parts[1] = datetime.strptime(parts[1], '%d.%m.%Y')
+
+        # use cleaned description or fall back to default
+        extracted_data = cleanup_description(parts[0])
+        if extracted_data:
+            parts[0] = extracted_data
+        else:
+            print('Could not cleanup description, using default.')
 
         #convert string to decimal
         parts[2] = parts[2].replace('.','')
