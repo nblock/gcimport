@@ -67,6 +67,10 @@ def write_csv(outfile, data_list):
                     )
             f.write(out_str)
 
+def cleanup_multiple_whitespaces(uncleaned_string):
+    '''Clean a string from multiple consecutive white spaces.'''
+    return ' '.join(uncleaned_string.split())
+
 def convert_elba(infile):
     '''Convert ELBA csv to internal format and return it.'''
     keys = (u'date', u'description', u'income', u'expense')
@@ -86,8 +90,8 @@ def convert_elba(infile):
         parts.extend(__decimal_to_gc_amount(parts[2]))
         del(parts[2])
 
-        #remove " from description
-        parts[1] = parts[1][1:-1]
+        # remove " and multiple white spaces from description
+        parts[1] = cleanup_multiple_whitespaces(parts[1][1:-1])
 
         data_list.append(dict(zip(keys, parts)))
 
@@ -170,6 +174,9 @@ def convert_easybank(infile):
             parts[0] = extracted_data
         else:
             print('Could not cleanup description, using default.')
+
+        # clean multiple white spaces from a description
+        parts[0] = cleanup_multiple_whitespaces(parts[0])
 
         #convert string to decimal
         parts[2] = parts[2].replace('.','')
