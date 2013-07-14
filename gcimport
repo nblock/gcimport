@@ -21,16 +21,14 @@ def __check_infile(infile):
     return infile
 
 def __decimal_to_gc_amount(value):
-    '''Add income and expenses keys according to key "amount".'''
+    '''Convert the given value to a tuple (income, expense) based on its sign.
+
+    Each element is converted to a string of the following format: 'xxx,yy'.'''
     __convert = lambda x: '{:.2f}'.format(x).replace('.', ',')
-    item = []
     if value <= 0:
-        item.append(__convert(0))          #income
-        item.append(__convert(abs(value))) #expense
+        return (__convert(0), __convert(abs(value)))
     else:
-        item.append(__convert(value))      #income
-        item.append(__convert(0))          #expense
-    return item
+        return (__convert(value), __convert(0))
 
 def detect_input_format(infile):
     '''Detect input format and select the function to parse the file.
