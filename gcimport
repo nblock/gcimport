@@ -78,14 +78,14 @@ def convert_elba(infile):
     for line in read_infile(infile, encoding='cp1252'):
         parts = line.strip().split(';')[:-1]
 
-        #delete unnecessary values
+        # delete unnecessary values
         for idx in (5, 4, 2):
             del(parts[idx])
 
-        #parse date
+        # parse date
         parts[0] = datetime.strptime(parts[0], '%d.%m.%Y')
 
-        #convert string to decimal
+        # convert string to decimal
         parts[2] = Decimal(parts[2].replace(',','.'))
         parts.extend(__decimal_to_gc_amount(parts[2]))
         del(parts[2])
@@ -161,11 +161,11 @@ def convert_easybank(infile):
     for line in read_infile(infile, encoding='cp1252'):
         parts = line.strip().split(';')
 
-        #delete unnecessary values
+        # delete unnecessary values
         for idx in (5, 3, 0):
             del(parts[idx])
 
-        #parse date
+        # parse date
         parts[1] = datetime.strptime(parts[1], '%d.%m.%Y')
 
         # use cleaned description or fall back to default
@@ -178,7 +178,7 @@ def convert_easybank(infile):
         # clean multiple white spaces from a description
         parts[0] = cleanup_multiple_whitespaces(parts[0])
 
-        #convert string to decimal
+        # convert string to decimal
         parts[2] = parts[2].replace('.','')
         parts[2] = Decimal(parts[2].replace(',','.'))
         parts.extend(__decimal_to_gc_amount(parts[2]))
@@ -225,19 +225,19 @@ def convert_paypal(infile):
     '''Convert paypal csv files to internal format and return it.'''
     keys = (u'date', u'description', u'income', u'expense')
     data_list = []
-    for line in read_infile(infile, encoding='iso-8859-1')[1:]: #skip first line
+    for line in read_infile(infile, encoding='iso-8859-1')[1:]: # skip first line
         parts = line.strip().split('"')
         parts = [part for part in parts if part]
         parts = [part for part in parts if len(part) != 1]
 
-        #delete unnecessary values
+        # delete unnecessary values
         for idx in (8, 6, 5, 4, 2, 1):
             del(parts[idx])
 
-        #parse date
+        # parse date
         parts[0] = datetime.strptime(parts[0], '%d.%m.%Y')
 
-        ##convert string to decimal
+        # convert string to decimal
         parts[2] = Decimal(parts[2].replace(',','.'))
         parts.extend(__decimal_to_gc_amount(parts[2]))
         del(parts[2])
