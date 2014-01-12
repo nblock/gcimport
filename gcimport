@@ -53,14 +53,16 @@ def read_infile(infile, encoding='utf-8'):
 def write_csv(outfile, data_list):
     '''Write data to csv file.'''
     #[{
-    # 'date':datetime object,
-    # 'description':'description',
-    # 'income':'700,00',
+    # 'number': 'entry number'
+    # 'date': datetime object,
+    # 'description': 'description',
+    # 'income': '700,00',
     # 'expense': '0,00'
     #}, ...]
     with open(outfile, 'w') as f:
         for item in data_list:
             out_str = '"{}","{}","{}","{}"\n'.format(
+                    item['number'].encode('utf-8'),
                     item['date'].strftime(u'%Y.%m.%d'),
                     item['description'].encode('utf-8'),
                     item['income'].encode('utf-8'),
@@ -148,6 +150,14 @@ def convert_easybank(infile):
         elif len(tmp) == 3:
             return u'{0} - {1} ({2})'.format(tmp[0], tmp[1], tmp[2])
 
+    def extract_number(description):
+        '''Try to extract the booking number.'''
+        result = u''
+        mo = reg_description.search(description)
+        if mo:
+            result = unicode(int(mo.group(0).split('/')[1]))
+        return result
+
     for line in read_infile(infile, encoding='cp1252'):
         entry = defaultdict(unicode)
         parts = line.strip().split(';')
@@ -160,7 +170,7 @@ def convert_easybank(infile):
             entry['description'] = extract_description_from_creditcard(parts[1])
         else:
             entry['description'] = extract_description_from_giro(parts[1])
-            entry['number'] = u'foobar' # TODO
+            entry['number'] = extract_number(parts[1])
 
         # description
         if not entry['description']:
