@@ -12,6 +12,7 @@ import os
 import re
 from decimal import Decimal
 from datetime import datetime
+from collections import defaultdict
 
 def __check_infile(infile):
     '''Check if infile exists and is readable.'''
@@ -73,51 +74,40 @@ def cleanup_multiple_whitespaces(uncleaned_string):
 
 def convert_elba(infile):
     '''Convert ELBA csv to internal format and return it.'''
-    keys = (u'date', u'description', u'income', u'expense')
     data_list = []
     for line in read_infile(infile, encoding='cp1252'):
+        entry = defaultdict(unicode)
         parts = line.strip().split(';')[:-1]
 
-        # delete unnecessary values
-        for idx in (5, 4, 2):
-            del(parts[idx])
+        # parse entry
+        entry['date'] = datetime.strptime(parts[0], '%d.%m.%Y')
+        entry['description'] = cleanup_multiple_whitespaces(parts[1][1:-1])
+        amount = Decimal(parts[3].replace(',', '.'))
+        entry['income'], entry['expense'] = __decimal_to_gc_amount(amount)
 
-        # parse date
-        parts[0] = datetime.strptime(parts[0], '%d.%m.%Y')
-
-        # convert string to decimal
-        parts[2] = Decimal(parts[2].replace(',','.'))
-        parts.extend(__decimal_to_gc_amount(parts[2]))
-        del(parts[2])
-
-        # remove " and multiple white spaces from description
-        parts[1] = cleanup_multiple_whitespaces(parts[1][1:-1])
-
-        data_list.append(dict(zip(keys, parts)))
-
+        # save entry
+        data_list.append(entry)
     return data_list
 
 def convert_easybank(infile):
     '''Convert easybank csv to internal format and return it.'''
-    keys = (u'description', u'date', u'income', u'expense')
     data_list = []
     reg_description = re.compile(r'[A-Z]{2}/[0-9]{9}')
     reg_iban = re.compile(r'([A-Z]{6}[A-Z0-9]{2}[^\s]*)\s([A-Z]{2}[0-9]{10,34}\s)(.*)')
     reg_legacy = re.compile(r'(.*)([0-9]{5,})\s([0-9]{6,})(.*)')
 
-    def cleanup_description(desc):
-        '''Cleanup up description based of account type.'''
-        if '|' in desc: # most likely a cc account
-            return description_from_cc(desc)
-        else:
-            return description_from_giro(desc)
+    def is_creditcard(description):
+        '''Try to detect if input is from a creditcard or a giro account.'''
+        if '|' in description:
+            return True
+        return False
 
-    def description_from_giro(desc):
+    def extract_description_from_giro(description):
         '''Cleanup description from a giro account.'''
         # extract iban/bic, account number, ...
         extracted_data = {}
         done = False
-        tmp = [x.strip() for x in reg_description.split(desc)]
+        tmp = [x.strip() for x in reg_description.split(description)]
         if tmp[1]:
             # extract iban, bic and text
             iban_bic = reg_iban.search(tmp[1])
@@ -150,100 +140,82 @@ def convert_easybank(infile):
         else:
             return None
 
-    def description_from_cc(desc):
-        '''Cleanup description from a cc account'''
-        tmp = desc.split('|')
+    def extract_description_from_creditcard(description):
+        '''Cleanup description from a creditcard account'''
+        tmp = description.split('|')
         if len(tmp) == 2:
             return u'{0} ({1})'.format(tmp[0], tmp[1])
         elif len(tmp) == 3:
             return u'{0} - {1} ({2})'.format(tmp[0], tmp[1], tmp[2])
 
     for line in read_infile(infile, encoding='cp1252'):
+        entry = defaultdict(unicode)
         parts = line.strip().split(';')
 
-        # delete unnecessary values
-        for idx in (5, 3, 0):
-            del(parts[idx])
+        # parse entry
+        entry['date'] = datetime.strptime(parts[2], '%d.%m.%Y')
 
-        # parse date
-        parts[1] = datetime.strptime(parts[1], '%d.%m.%Y')
-
-        # use cleaned description or fall back to default
-        extracted_data = cleanup_description(parts[0])
-        if extracted_data:
-            parts[0] = extracted_data
+        # parse description and number (giro only).
+        if is_creditcard(parts[1]):
+            entry['description'] = extract_description_from_creditcard(parts[1])
         else:
+            entry['description'] = extract_description_from_giro(parts[1])
+            entry['number'] = u'foobar' # TODO
+
+        # description
+        if not entry['description']:
             print('Could not cleanup description, using default.')
+            entry['description'] = parts[1]
+        entry['description'] = cleanup_multiple_whitespaces(entry['description'])
 
-        # clean multiple white spaces from a description
-        parts[0] = cleanup_multiple_whitespaces(parts[0])
+        # amount
+        amount = parts[4].replace('.', '')
+        amount = Decimal(amount.replace(',','.'))
+        entry['income'], entry['expense'] = __decimal_to_gc_amount(amount)
 
-        # convert string to decimal
-        parts[2] = parts[2].replace('.','')
-        parts[2] = Decimal(parts[2].replace(',','.'))
-        parts.extend(__decimal_to_gc_amount(parts[2]))
-        del(parts[2])
-
-        data_list.append(dict(zip(keys, parts)))
-
+        # save entry
+        data_list.append(entry)
     return data_list
 
 def convert_livebank(infile):
     '''Convert livebank csv to internal format and return it.'''
-    keys = (u'date', u'description', u'income', u'expense')
     data_list = []
     for line in read_infile(infile, encoding='iso-8859-1')[1:]:
+        entry = defaultdict(unicode)
         parts = line.strip().split(';')
 
         # skip the enire record if there is no amount to account
         if parts[7] == "0,00":
             continue
 
-        # delete unnecessary values
-        for idx in (6, 5, 4, 2, 1, 0):
-            del(parts[idx])
+        # parse entry
+        entry['date'] = datetime.strptime(parts[3], '%Y-%m-%d')
+        entry['description'] = ', '.join(parts[8:]).replace('"', '')
+        amount = parts[7].replace('.','')
+        amount = Decimal(amount.replace(',','.'))
+        entry['income'], entry['expense'] = __decimal_to_gc_amount(amount)
 
-        # merge everything from the 2nd element
-        parts[2] = ','.join(parts[2:]).replace('"', '')
-        for idx in range(len(parts)-1, 2, -1):
-            del(parts[idx])
-
-        # parse date
-        parts[0] = datetime.strptime(parts[0], '%Y-%m-%d')
-
-        # convert string to decimal
-        parts[1] = parts[1].replace('.','')
-        parts[1] = Decimal(parts[1].replace(',','.'))
-        parts.extend(__decimal_to_gc_amount(parts[1]))
-        del(parts[1])
-
-        data_list.append(dict(zip(keys, parts)))
-
+        # save entry
+        data_list.append(entry)
     return data_list
 
 def convert_paypal(infile):
     '''Convert paypal csv files to internal format and return it.'''
-    keys = (u'date', u'description', u'income', u'expense')
     data_list = []
     for line in read_infile(infile, encoding='iso-8859-1')[1:]: # skip first line
+        entry = defaultdict(unicode)
         parts = line.strip().split('"')
         parts = [part for part in parts if part]
         parts = [part for part in parts if len(part) != 1]
 
-        # delete unnecessary values
-        for idx in (8, 6, 5, 4, 2, 1):
-            del(parts[idx])
+        # parse entry
+        entry['date'] = datetime.strptime(parts[0], '%d.%m.%Y')
+        entry['description'] = parts[3]
+        amount = Decimal(parts[7].replace(',', '.'))
+        entry['income'], entry['expense'] = __decimal_to_gc_amount(amount)
 
-        # parse date
-        parts[0] = datetime.strptime(parts[0], '%d.%m.%Y')
-
-        # convert string to decimal
-        parts[2] = Decimal(parts[2].replace(',','.'))
-        parts.extend(__decimal_to_gc_amount(parts[2]))
-        del(parts[2])
-
-        data_list.append(dict(zip(keys, parts)))
-
+        # save entry
+        data_list.append(entry)
     return data_list
 
 if __name__ == '__main__':
